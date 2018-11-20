@@ -5,13 +5,12 @@ Using a markov-chain approach to generate news headlines. The chain can be train
  
 
 ```
+$ ./gotitlegenerator --help
 Usage of ./gotitlegenerator:
-    -chain string
-        specifies the markov chain file to load
-    -json string
-        if specified loads lines from sandbox-json
-    -order uint
-        specifies the order of the markov chain to train (default 1)
-    -txt string
-        if specified loads lines from text file```
+  -input string
+        the path to load the titles from (default "model.txt")
+  -ngram int
+        ngram size to generate the chain from (default 1)
+  -words int
+        number of words to create the title from (default 6)```
 
