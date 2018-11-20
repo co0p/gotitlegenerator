@@ -1,57 +1,57 @@
 package main
 
 import (
+	"bufio"
 	"flag"
-	"log"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/mb-14/gomarkov"
 )
 
 func main() {
 
-	trainer := Trainer{}
+	var trainingFile string
+	var ngram int
+	var maxWords int
+	flag.StringVar(&trainingFile, "input", "model.txt", "the path to load the titles from")
+	flag.IntVar(&ngram, "ngram", 1, "ngram size to generate the chain from")
+	flag.IntVar(&maxWords, "words", 6, "number of words to create the title from")
 
-	var jsonFile string
-	var textFile string
-	var chainFile string
-	var markovOrder uint
-
-	flag.StringVar(&jsonFile, "json", "", "if specified loads lines from sandbox-json")
-	flag.StringVar(&textFile, "txt", "", "if specified loads lines from text file")
-	flag.UintVar(&markovOrder, "order", 1, "specifies the order of the markov chain to train")
-	flag.StringVar(&chainFile, "chain", "", "specifies the markov chain file to load")
 	flag.Parse()
 
-	var lines []string
-	if jsonFile != "" {
-		lines = readFromFile(jsonFile, &SandboxJsonReader{})
-	}
-	if textFile != "" {
-		lines = readFromFile(textFile, &TextFileReader{})
+	chain, err := trainModel(trainingFile, ngram)
+	if err != nil {
+		fmt.Println("failed training model:", err)
 	}
 
-	if lines != nil {
-		if err := trainer.train(lines, markovOrder); err != nil {
-			log.Fatalf("failed to train the chain of order %d: %s", markovOrder, err.Error())
-		}
-		if err := trainer.save(); err != nil {
-			log.Fatalf("failed to save the chain: %s", err.Error())
-		}
-	}
-
-	if chainFile != "" {
-		err := trainer.load(chainFile)
-		if err != nil {
-			log.Fatalf("failed to load chain %s: %s", chainFile, err.Error())
-		}
-	}
-
+	fmt.Println(generateTitle(chain, maxWords))
 }
 
-func readFromFile(path string, reader FileReader) []string {
-	count, err := reader.load(path)
+func trainModel(trainingFile string, ngram int) (*gomarkov.Chain, error) {
+
+	chain := gomarkov.NewChain(ngram)
+	reader, err := os.Open(trainingFile)
 	if err != nil {
-		log.Fatalf("failed loading from file: %s", err.Error())
+		fmt.Printf("failed to open file: %s\n", err.Error())
+		os.Exit(1)
 	}
 
-	log.Printf("loaded %d lines from file %s", count, path)
-	return reader.getLines()
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		chain.Add(strings.Split(scanner.Text(), " "))
+	}
+	return chain, nil
+}
+
+func generateTitle(chain *gomarkov.Chain, maxWords int) string {
+	tokens := []string{gomarkov.StartToken}
+	count := 0
+	for tokens[len(tokens)-1] != gomarkov.EndToken {
+		count = count + 1
+		next, _ := chain.Generate(tokens[(len(tokens) - 1):])
+		tokens = append(tokens, next)
+	}
+	return (strings.Join(tokens[1:len(tokens)-1], " "))
 }
